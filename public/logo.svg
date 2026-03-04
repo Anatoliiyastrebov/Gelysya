@@ -1,26 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" width="200" height="60">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <defs>
-    <linearGradient id="healthGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#6b7d6b;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#a8c5a8;stop-opacity:1" />
+    <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8fcaa1" />
+      <stop offset="100%" stop-color="#4f8960" />
     </linearGradient>
   </defs>
-  
-  <!-- Медицинский крест (символ здоровья) -->
-  <g transform="translate(5, 10)">
-    <!-- Вертикальная линия -->
-    <rect x="20" y="5" width="10" height="30" rx="5" fill="url(#healthGrad)"/>
-    <!-- Горизонтальная линия -->
-    <rect x="5" y="17.5" width="40" height="10" rx="5" fill="url(#healthGrad)"/>
-    <!-- Сердце внутри -->
-    <path d="M 25 15 Q 25 10, 30 10 Q 35 10, 35 15 Q 35 20, 25 30 Q 15 20, 15 15 Q 15 10, 20 10 Q 25 10, 25 15" fill="white" opacity="0.9"/>
-  </g>
-  
-  <!-- Текст -->
-  <text x="60" y="35" font-family="Georgia, serif" font-size="24" font-weight="600" fill="#4a5a4a" letter-spacing="0.5px">
-    Wellness
-  </text>
-  <text x="60" y="50" font-family="Arial, sans-serif" font-size="12" fill="#6b7d6b" font-style="italic" letter-spacing="1px">
-    ЗДОРОВЬЕ
-  </text>
+  <rect x="8" y="8" width="84" height="84" rx="22" fill="url(#brandGrad)" />
+  <path
+    d="M34 58c0-13 8-22 22-24 7-1 12 1 16 4-2 9-7 18-15 24-6 5-13 8-23 8z"
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="7"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path d="M50 47c6 5 9 10 10 17" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" />
 </svg>
