@@ -1,8 +1,12 @@
 // Интеграция с Telegram Bot API
 import { getQuestionnaireById, type QuestionField } from '../data/questionnaires';
 
-const TELEGRAM_BOT_TOKEN = '8706967568:AAE8Vw3Crln7AKfsdJAxnd6OjpxWwUmf3bs';
-const TELEGRAM_CHAT_ID = '1003706399552';
+const TELEGRAM_BOT_TOKEN = (import.meta.env.VITE_TELEGRAM_BOT_TOKEN || '').trim();
+const TELEGRAM_CHAT_ID = (import.meta.env.VITE_TELEGRAM_CHAT_ID || '').trim();
+
+function hasTelegramConfig(): boolean {
+  return Boolean(TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID);
+}
 
 /**
  * Отправка файла в Telegram
@@ -431,6 +435,13 @@ export async function sendToTelegram(
   questionnaireId: string,
   formData: Record<string, any>
 ): Promise<boolean> {
+  if (!hasTelegramConfig()) {
+    console.error(
+      'Telegram is not configured. Set VITE_TELEGRAM_BOT_TOKEN and VITE_TELEGRAM_CHAT_ID in your .env file.'
+    );
+    return false;
+  }
+
   try {
     // Собираем все файлы из формы с улучшенной обработкой
     const files: { file: File; questionLabel: string }[] = [];
