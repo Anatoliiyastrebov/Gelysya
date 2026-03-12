@@ -77,6 +77,16 @@
   font-weight: 600;
 }
 
+.contact-mail-link {
+  color: #4f8960;
+  text-decoration: none;
+}
+
+.contact-mail-link:hover {
+  color: #365943;
+  text-decoration: underline;
+}
+
 @media (max-width: 768px) {
   .impressum-content {
     padding: 40px 20px;

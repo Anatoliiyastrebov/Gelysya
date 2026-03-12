@@ -324,12 +324,12 @@ export const babiesQuestionnaire: Questionnaire = {
   ]
 };
 
-// Анкета: Детская (1–12 лет)
+// Анкета: Для подростков
 export const childrenQuestionnaire: Questionnaire = {
   id: 'children',
   name: {
-    ru: 'Детская анкета (1–12 лет)',
-    en: 'Children\'s questionnaire (1–12 years)'
+    ru: 'Анкета для подростков',
+    en: 'Teen questionnaire'
   },
   questions: [
     {

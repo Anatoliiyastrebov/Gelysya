@@ -107,7 +107,7 @@ async function generateQuestionnairePDF(
   const { default: html2pdf } = await import('html2pdf.js');
 
   const questionnaireNames: Record<string, string> = {
-    children: 'Детская анкета (1–12 лет)',
+    children: 'Анкета для подростков',
     female: 'Женская анкета',
     male: 'Мужская анкета'
   };
@@ -606,7 +606,7 @@ function formatQuestionnaireMessage(
   formData: Record<string, any>
 ): string {
   const questionnaireNames: Record<string, string> = {
-    children: 'Детская анкета (1–12 лет)',
+    children: 'Анкета для подростков',
     female: 'Женская анкета',
     male: 'Мужская анкета'
   };

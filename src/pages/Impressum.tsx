@@ -31,6 +31,12 @@ export const Impressum = () => {
           <h2>{t('impressum.contact', lang)}</h2>
           <p>{t('impressum.contactTextRu', lang)}</p>
           <p>{t('impressum.contactTextEn', lang)}</p>
+          <p>
+            <strong>{t('impressum.emailLabel', lang)}:</strong>{' '}
+            <a href={`mailto:${t('impressum.email', lang)}`} className="contact-mail-link">
+              {t('impressum.email', lang)}
+            </a>
+          </p>
         </section>
         
         <section className="impressum-section">

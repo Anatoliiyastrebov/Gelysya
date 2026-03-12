@@ -190,6 +190,14 @@
   z-index: 1;
 }
 
+.footer-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
 .impressum-link {
   color: #4f8960;
   text-decoration: none;

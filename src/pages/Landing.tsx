@@ -41,9 +41,14 @@ export const Landing: React.FC = () => {
       </main>
       
       <footer className="landing-footer">
-        <Link to="/impressum" className="impressum-link">
-          {t('impressum.title', lang)}
-        </Link>
+        <div className="footer-links">
+          <Link to="/impressum" className="impressum-link">
+            {t('impressum.title', lang)}
+          </Link>
+          <a href={`mailto:${t('impressum.email', lang)}`} className="impressum-link">
+            {t('impressum.email', lang)}
+          </a>
+        </div>
       </footer>
     </div>
   );
