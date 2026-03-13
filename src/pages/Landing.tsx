@@ -30,7 +30,22 @@ export const Landing: React.FC = () => {
               </React.Fragment>
             ))}
           </p>
-          <p className="landing-signature">{t('common.signature', lang)}</p>
+          <p className="landing-signature">
+            {t('common.signature', lang).split('\n').map((line, i) => (
+              <React.Fragment key={i}>
+                {line}
+                {i < t('common.signature', lang).split('\n').length - 1 && <br />}
+              </React.Fragment>
+            ))}
+          </p>
+          <p className="landing-description">
+            {t('common.quickInfo', lang).split('\n').map((line, i) => (
+              <React.Fragment key={i}>
+                {line}
+                {i < t('common.quickInfo', lang).split('\n').length - 1 && <br />}
+              </React.Fragment>
+            ))}
+          </p>
         </div>
         
         <div className="questionnaires-grid">

@@ -10,10 +10,11 @@ export interface Translations {
 const translations: Record<Language, Translations> = {
   ru: {
     common: {
-      welcome: 'Добро пожаловать',
-      title: 'Анкета по здоровью',
-      description: 'Выберите подходящий вариант и заполните его.\nПосле изучения ответов я с вами свяжусь.',
-      signature: 'Фатхинурова Гелюся, ваш wellness-консультант',
+      welcome: 'Разберёмся, что происходит с вашим организмом.',
+      title: 'Короткая анкета поможет понять:',
+      description: 'где теряется энергия, какие дефициты могут быть и с чего лучше начать восстановление.',
+      signature: '👩‍⚕️ Разбор делает провизор и специалист по восстановлению здоровья\nГелюся Фатхинурова',
+      quickInfo: '⏱ Займёт всего 1–2 минуты\n🔒 Ответы конфиденциальны',
       next: 'Далее',
       back: 'Назад',
       submit: 'Отправить',
@@ -69,10 +70,11 @@ const translations: Record<Language, Translations> = {
   },
   en: {
     common: {
-      welcome: 'Welcome',
-      title: 'Health Questionnaire',
-      description: 'Choose the appropriate option and fill it out.\nAfter reviewing your answers, I will contact you.',
-      signature: 'Gelusa Fatkhinurova, your wellness consultant',
+      welcome: 'Let us understand what is happening with your body.',
+      title: 'A short questionnaire helps identify:',
+      description: 'where energy is being lost, which deficiencies may be present, and where recovery is best to begin.',
+      signature: '👩‍⚕️ Review by a pharmacist and health recovery specialist\nGelusa Fatkhinurova',
+      quickInfo: '⏱ Takes only 1-2 minutes\n🔒 Your answers are confidential',
       next: 'Next',
       back: 'Back',
       submit: 'Submit',
