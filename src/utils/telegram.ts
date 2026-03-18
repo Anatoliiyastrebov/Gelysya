@@ -91,6 +91,11 @@ function getFieldContext(
   return findContext(questionnaire.questions) || { fieldLabel: getQuestionLabel(fieldId, questionnaireId) };
 }
 
+function getQuestionNumberFromFieldId(fieldId: string): string | null {
+  const match = fieldId.match(/^q(\d+)/i);
+  return match?.[1] || null;
+}
+
 /**
  * Отправка файла в Telegram
  * Поддерживает все форматы файлов и правильно обрабатывает ошибки
@@ -566,9 +571,13 @@ export async function sendToTelegram(
     // Сначала отправляем пользовательские файлы, чтобы не сохранять анкету при ошибке загрузки
     for (const { fieldId, file, fieldLabel, parentQuestionLabel } of files) {
       onFileProgress?.({ fieldId, fileName: file.name, status: 'uploading' });
-      const contextLine = parentQuestionLabel
-        ? `📎 Файл к вопросу: ${parentQuestionLabel}\nПоле загрузки: ${fieldLabel}`
-        : `📎 Файл из поля: ${fieldLabel}`;
+      const questionNumber = getQuestionNumberFromFieldId(fieldId);
+      const isAnalysesField = fieldId === 'q26_files';
+      const contextLine = isAnalysesField
+        ? '📎 Анализы (вопрос 26)'
+        : parentQuestionLabel
+          ? `📎 Файл к вопросу ${questionNumber ?? ''}`.trim()
+          : `📎 ${fieldLabel}`;
       const fileCaption = `${contextLine}\nИмя файла: ${file.name}\nРазмер: ${(file.size / 1024).toFixed(1)} KB`;
       const fileSent = await sendFileToTelegram(file, fileCaption);
       if (!fileSent) {
