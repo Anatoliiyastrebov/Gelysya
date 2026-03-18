@@ -729,6 +729,19 @@ const QuestionFieldComponent: React.FC<QuestionFieldProps> = ({
                 })}
               </div>
             )}
+            <div className="file-upload-meta">
+              <span>{t('common.fileUploadLimitCount', lang)}</span>
+              <span>•</span>
+              <span>{t('common.fileUploadLimitSize', lang)}</span>
+            </div>
+            <div className="file-upload-hint">
+              {t('common.fileUploadHint', lang).split('\n').map((line, i) => (
+                <React.Fragment key={i}>
+                  {line}
+                  {i < t('common.fileUploadHint', lang).split('\n').length - 1 && <br />}
+                </React.Fragment>
+              ))}
+            </div>
           </div>
         );
       
