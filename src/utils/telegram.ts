@@ -24,7 +24,8 @@ interface SendToTelegramResult {
 interface PreparedFile {
   fieldId: string;
   file: File;
-  questionLabel: string;
+  fieldLabel: string;
+  parentQuestionLabel?: string;
 }
 
 function extractFiles(value: any): File[] {
@@ -58,6 +59,36 @@ function collectRequiredFileFieldIds(
     }
   });
   return target;
+}
+
+function getFieldContext(
+  questionnaireId: string,
+  fieldId: string
+): { fieldLabel: string; parentQuestionLabel?: string } {
+  const questionnaire = getQuestionnaireById(questionnaireId);
+  if (!questionnaire) {
+    return { fieldLabel: fieldId };
+  }
+
+  const findContext = (
+    fields: QuestionField[],
+    parentQuestionLabel?: string
+  ): { fieldLabel: string; parentQuestionLabel?: string } | null => {
+    for (const field of fields) {
+      if (field.id === fieldId) {
+        return { fieldLabel: field.label, parentQuestionLabel };
+      }
+      if (field.conditionalFields) {
+        for (const cond of field.conditionalFields) {
+          const found = findContext(cond.fields, field.label);
+          if (found) return found;
+        }
+      }
+    }
+    return null;
+  };
+
+  return findContext(questionnaire.questions) || { fieldLabel: getQuestionLabel(fieldId, questionnaireId) };
 }
 
 /**
@@ -518,19 +549,27 @@ export async function sendToTelegram(
         return { success: false, error: 'Можно загрузить максимум 5 файлов' };
       }
 
-      const questionLabel = getQuestionLabel(key, questionnaireId);
+      const fieldContext = getFieldContext(questionnaireId, key);
       for (const file of fieldFiles) {
         if (file.size > 50 * 1024 * 1024) {
           return { success: false, error: 'Файл слишком большой. Максимальный размер: 50MB' };
         }
-        files.push({ fieldId: key, file, questionLabel });
+        files.push({
+          fieldId: key,
+          file,
+          fieldLabel: fieldContext.fieldLabel,
+          parentQuestionLabel: fieldContext.parentQuestionLabel
+        });
       }
     }
 
     // Сначала отправляем пользовательские файлы, чтобы не сохранять анкету при ошибке загрузки
-    for (const { fieldId, file, questionLabel } of files) {
+    for (const { fieldId, file, fieldLabel, parentQuestionLabel } of files) {
       onFileProgress?.({ fieldId, fileName: file.name, status: 'uploading' });
-      const fileCaption = `📎 Файл из вопроса: ${questionLabel}\nИмя файла: ${file.name}\nРазмер: ${(file.size / 1024).toFixed(1)} KB`;
+      const contextLine = parentQuestionLabel
+        ? `📎 Файл к вопросу: ${parentQuestionLabel}\nПоле загрузки: ${fieldLabel}`
+        : `📎 Файл из поля: ${fieldLabel}`;
+      const fileCaption = `${contextLine}\nИмя файла: ${file.name}\nРазмер: ${(file.size / 1024).toFixed(1)} KB`;
       const fileSent = await sendFileToTelegram(file, fileCaption);
       if (!fileSent) {
         onFileProgress?.({ fieldId, fileName: file.name, status: 'error' });
