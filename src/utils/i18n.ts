@@ -42,9 +42,9 @@ const translations: Record<Language, Translations> = {
       fileStatusSuccess: 'успешно',
       fileStatusError: 'ошибка',
       fileUploadHint:
-        'Вы можете загрузить результаты анализов крови, УЗИ или другие медицинские документы.\nДопускается загрузка до 5 файлов.\nМаксимальный размер одного файла — 30 MB.\nПоддерживаются распространённые форматы: PDF, JPG, PNG, DOC, DOCX.\nПожалуйста, дождитесь полной загрузки файлов перед отправкой анкеты.',
+        'Вы можете загрузить результаты анализов крови, УЗИ или другие медицинские документы.\nДопускается загрузка до 5 файлов.\nОбщий размер всех файлов — до 30 MB.\nПоддерживаются распространённые форматы: PDF, JPG, PNG, DOC, DOCX.\nПожалуйста, дождитесь полной загрузки файлов перед отправкой анкеты.',
       fileUploadLimitCount: 'Максимум 5 файлов',
-      fileUploadLimitSize: 'До 30 MB за файл',
+      fileUploadLimitSize: 'До 30 MB суммарно',
       invalidTelegram: 'Неверный формат Telegram. Используйте: @username',
       invalidInstagram: 'Неверный формат Instagram. Используйте: username (без @)',
       telegramHintOk: '✓ Формат правильный',
@@ -113,9 +113,9 @@ const translations: Record<Language, Translations> = {
       fileStatusSuccess: 'success',
       fileStatusError: 'error',
       fileUploadHint:
-        'You can upload blood test results, ultrasound files, or other medical documents.\nUp to 5 files are allowed.\nMaximum size per file is 30 MB.\nCommon formats are supported: PDF, JPG, PNG, DOC, DOCX.\nPlease wait until file upload is fully completed before submitting the form.',
+        'You can upload blood test results, ultrasound files, or other medical documents.\nUp to 5 files are allowed.\nTotal size of all files should be up to 30 MB.\nCommon formats are supported: PDF, JPG, PNG, DOC, DOCX.\nPlease wait until file upload is fully completed before submitting the form.',
       fileUploadLimitCount: 'Maximum 5 files',
-      fileUploadLimitSize: 'Up to 30 MB per file',
+      fileUploadLimitSize: 'Up to 30 MB total',
       invalidTelegram: 'Invalid Telegram format. Use: @username',
       invalidInstagram: 'Invalid Instagram format. Use: username (without @)',
       telegramHintOk: '✓ Format is correct',
