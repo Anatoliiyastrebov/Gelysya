@@ -8,6 +8,58 @@ function hasTelegramConfig(): boolean {
   return Boolean(TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID);
 }
 
+type FileUploadStatus = 'uploading' | 'success' | 'error';
+
+interface FileUploadProgressEvent {
+  fieldId: string;
+  fileName: string;
+  status: FileUploadStatus;
+}
+
+interface SendToTelegramResult {
+  success: boolean;
+  error?: string;
+}
+
+interface PreparedFile {
+  fieldId: string;
+  file: File;
+  questionLabel: string;
+}
+
+function extractFiles(value: any): File[] {
+  if (!value) return [];
+  if (value instanceof FileList) return Array.from(value);
+  if (value instanceof File) return [value];
+  if (Array.isArray(value)) return value.filter((item): item is File => item instanceof File);
+  return [];
+}
+
+function isFileAnswerEmpty(value: any): boolean {
+  return extractFiles(value).filter(file => file.size > 0).length === 0;
+}
+
+function collectRequiredFileFieldIds(
+  fields: QuestionField[],
+  formData: Record<string, any>,
+  target = new Set<string>()
+): Set<string> {
+  fields.forEach(field => {
+    if (field.type === 'file' && field.required) {
+      target.add(field.id);
+    }
+    if (field.conditionalFields) {
+      field.conditionalFields.forEach(cond => {
+        const conditionValue = formData[cond.condition.fieldId];
+        if (conditionValue === cond.condition.value) {
+          collectRequiredFileFieldIds(cond.fields, formData, target);
+        }
+      });
+    }
+  });
+  return target;
+}
+
 /**
  * Отправка файла в Telegram
  * Поддерживает все форматы файлов и правильно обрабатывает ошибки
@@ -433,79 +485,64 @@ function escapeHtml(text: string): string {
  */
 export async function sendToTelegram(
   questionnaireId: string,
-  formData: Record<string, any>
-): Promise<boolean> {
+  formData: Record<string, any>,
+  onFileProgress?: (event: FileUploadProgressEvent) => void
+): Promise<SendToTelegramResult> {
   if (!hasTelegramConfig()) {
     console.error(
       'Telegram is not configured. Set VITE_TELEGRAM_BOT_TOKEN and VITE_TELEGRAM_CHAT_ID in your .env file.'
     );
-    return false;
+    return { success: false, error: 'Ошибка загрузки файла, попробуйте ещё раз' };
   }
 
   try {
-    // Собираем все файлы из формы с улучшенной обработкой
-    const files: { file: File; questionLabel: string }[] = [];
-    
+    const questionnaire = getQuestionnaireById(questionnaireId);
+    if (!questionnaire) {
+      return { success: false, error: 'Ошибка загрузки файла, попробуйте ещё раз' };
+    }
+
+    const requiredFileFieldIds = collectRequiredFileFieldIds(questionnaire.questions, formData);
+    for (const fieldId of requiredFileFieldIds) {
+      if (isFileAnswerEmpty(formData[fieldId])) {
+        return { success: false, error: 'Пожалуйста, загрузите хотя бы один файл' };
+      }
+    }
+
+    const files: PreparedFile[] = [];
+
     for (const [key, value] of Object.entries(formData)) {
-      if (!value) continue;
-      
-      const questionnaire = getQuestionnaireById(questionnaireId);
-      const question = questionnaire?.questions.find(q => q.id === key);
-      const questionLabel = question?.label || key;
-      
-      // Обрабатываем FileList
-      if (value instanceof FileList) {
-        Array.from(value).forEach(file => {
-          if (file instanceof File && file.size > 0) {
-            files.push({ file, questionLabel });
-          } else if (file instanceof File && file.size === 0) {
-            console.warn(`Skipping empty file: ${file.name}`);
-          }
-        });
-      } 
-      // Обрабатываем массив File объектов
-      else if (Array.isArray(value) && value.length > 0) {
-        value.forEach((item: any) => {
-          if (item instanceof File && item.size > 0) {
-            files.push({ file: item, questionLabel });
-          } else if (item instanceof File && item.size === 0) {
-            console.warn(`Skipping empty file: ${item.name}`);
-          }
-        });
+      const fieldFiles = extractFiles(value).filter(file => file.size > 0);
+      if (fieldFiles.length === 0) continue;
+
+      if (fieldFiles.length > 5) {
+        return { success: false, error: 'Можно загрузить максимум 5 файлов' };
       }
-      // Обрабатываем одиночный File объект
-      else if (value instanceof File) {
-        if (value.size > 0) {
-          files.push({ file: value, questionLabel });
-        } else {
-          console.warn(`Skipping empty file: ${value.name}`);
+
+      const questionLabel = getQuestionLabel(key, questionnaireId);
+      for (const file of fieldFiles) {
+        if (file.size > 50 * 1024 * 1024) {
+          return { success: false, error: 'Файл слишком большой. Максимальный размер: 50MB' };
         }
+        files.push({ fieldId: key, file, questionLabel });
       }
     }
-    
-    console.log(`Found ${files.length} file(s) to send`);
-    
-    // Проверяем, что все файлы валидны
-    const invalidFiles = files.filter(({ file }) => {
-      return !file || !file.name || file.size === 0;
-    });
-    
-    if (invalidFiles.length > 0) {
-      console.warn(`Found ${invalidFiles.length} invalid file(s), skipping them`);
-      // Удаляем невалидные файлы из списка
-      const validFiles = files.filter(({ file }) => {
-        return file && file.name && file.size > 0;
-      });
-      files.length = 0;
-      files.push(...validFiles);
+
+    // Сначала отправляем пользовательские файлы, чтобы не сохранять анкету при ошибке загрузки
+    for (const { fieldId, file, questionLabel } of files) {
+      onFileProgress?.({ fieldId, fileName: file.name, status: 'uploading' });
+      const fileCaption = `📎 Файл из вопроса: ${questionLabel}\nИмя файла: ${file.name}\nРазмер: ${(file.size / 1024).toFixed(1)} KB`;
+      const fileSent = await sendFileToTelegram(file, fileCaption);
+      if (!fileSent) {
+        onFileProgress?.({ fieldId, fileName: file.name, status: 'error' });
+        return { success: false, error: 'Ошибка загрузки файла, попробуйте ещё раз' };
+      }
+      onFileProgress?.({ fieldId, fileName: file.name, status: 'success' });
+      await new Promise(resolve => setTimeout(resolve, 300));
     }
-    
-    // Формируем структурированное сообщение
+
+    // После успешной отправки файлов отправляем основную анкету
     const message = formatQuestionnaireMessage(questionnaireId, formData);
-    
-    // URL для отправки сообщения через Telegram Bot API
     const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-    
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -517,84 +554,29 @@ export async function sendToTelegram(
         parse_mode: 'HTML'
       })
     });
-    
+
     const responseData = await response.json();
-    
     if (!response.ok) {
       console.error('Telegram API error:', responseData);
-      return false;
+      return { success: false, error: 'Ошибка загрузки файла, попробуйте ещё раз' };
     }
-    
-    console.log('Message sent successfully:', responseData);
-    
-    // Генерируем и отправляем PDF с анкетой
+
+    // PDF отправляем отдельно, но его ошибка не ломает уже успешную отправку анкеты
     try {
       const pdfFile = await generateQuestionnairePDF(questionnaireId, formData);
       const pdfCaption = `📄 PDF-версия анкеты: ${pdfFile.name}`;
       const pdfSent = await sendFileToTelegram(pdfFile, pdfCaption);
-      if (pdfSent) {
-        console.log('PDF sent successfully');
-      } else {
+      if (!pdfSent) {
         console.warn('Failed to send PDF');
       }
-      // Небольшая задержка перед отправкой других файлов
-      await new Promise(resolve => setTimeout(resolve, 500));
     } catch (error) {
       console.error('Error generating or sending PDF:', error);
     }
-    
-    // Отправляем файлы отдельными сообщениями с улучшенной обработкой ошибок
-    if (files.length > 0) {
-      console.log(`Sending ${files.length} file(s)...`);
-      
-      const sentFiles: string[] = [];
-      const failedFiles: string[] = [];
-      
-      for (let i = 0; i < files.length; i++) {
-        const { file, questionLabel } = files[i];
-        
-        // Формируем подпись для файла
-        const fileCaption = `📎 Файл ${i + 1}/${files.length} из вопроса: ${questionLabel}\nИмя файла: ${file.name}\nРазмер: ${(file.size / 1024).toFixed(1)} KB`;
-        
-        try {
-          const fileSent = await sendFileToTelegram(file, fileCaption);
-          if (fileSent) {
-            sentFiles.push(file.name);
-            console.log(`✓ File ${i + 1}/${files.length} sent: ${file.name}`);
-          } else {
-            failedFiles.push(file.name);
-            console.warn(`✗ Failed to send file ${i + 1}/${files.length}: ${file.name}`);
-          }
-        } catch (error: any) {
-          failedFiles.push(file.name);
-          console.error(`✗ Error sending file ${i + 1}/${files.length} (${file.name}):`, error);
-        }
-        
-        // Задержка между отправками, чтобы не превысить лимиты API Telegram
-        // Telegram позволяет отправлять до 20 сообщений в секунду
-        if (i < files.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 600)); // 600ms между файлами
-        }
-      }
-      
-      // Логируем результаты
-      console.log(`Files sending completed:`);
-      console.log(`  ✓ Successfully sent: ${sentFiles.length} file(s)`);
-      if (failedFiles.length > 0) {
-        console.warn(`  ✗ Failed to send: ${failedFiles.length} file(s)`);
-        failedFiles.forEach(fileName => console.warn(`    - ${fileName}`));
-      }
-      
-      // Если хотя бы один файл был отправлен успешно, считаем операцию частично успешной
-      if (sentFiles.length === 0 && failedFiles.length > 0) {
-        console.error('All files failed to send');
-      }
-    }
-    
-    return true;
+
+    return { success: true };
   } catch (error) {
     console.error('Error sending to Telegram:', error);
-    return false;
+    return { success: false, error: 'Ошибка загрузки файла, попробуйте ещё раз' };
   }
 }
 

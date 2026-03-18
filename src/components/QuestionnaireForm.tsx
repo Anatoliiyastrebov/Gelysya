@@ -7,6 +7,10 @@ import { sendToTelegram, exportToJSON } from '../utils/telegram';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import './QuestionnaireForm.css';
 
+type FileUiStatus = 'selected' | 'uploading' | 'success' | 'error';
+
+const getFileStatusKey = (fieldId: string, fileName: string): string => `${fieldId}::${fileName}`;
+
 export const QuestionnaireForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -17,6 +21,7 @@ export const QuestionnaireForm: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [consent, setConsent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [fileStatuses, setFileStatuses] = useState<Record<string, FileUiStatus>>({});
   
   useEffect(() => {
     if (id) {
@@ -90,6 +95,28 @@ export const QuestionnaireForm: React.FC = () => {
           });
         }
       }
+
+      // При смене файлов обновляем локальные статусы файлов в UI
+      if (questionnaire) {
+        const allQs = getAllQuestions(questionnaire.questions);
+        const changedField = allQs.find(q => q.id === fieldId);
+        if (changedField?.type === 'file') {
+          const nextStatuses: Record<string, FileUiStatus> = {};
+          const nextFiles = Array.isArray(value) ? value : value instanceof File ? [value] : [];
+          nextFiles.forEach((file: File) => {
+            nextStatuses[getFileStatusKey(fieldId, file.name)] = 'selected';
+          });
+          setFileStatuses(prev => {
+            const filtered: Record<string, FileUiStatus> = {};
+            Object.entries(prev).forEach(([k, status]) => {
+              if (!k.startsWith(`${fieldId}::`)) {
+                filtered[k] = status;
+              }
+            });
+            return { ...filtered, ...nextStatuses };
+          });
+        }
+      }
       
       return newData;
     });
@@ -155,7 +182,13 @@ export const QuestionnaireForm: React.FC = () => {
           const conditionValue = formData[cond.condition.fieldId];
           if (conditionValue === cond.condition.value) {
             cond.fields.forEach(field => {
-              if (field.required && !formData[field.id]) {
+              if (field.type === 'file' && field.required) {
+                const files = formData[field.id];
+                const hasFiles = Array.isArray(files) ? files.length > 0 : files instanceof File ? true : false;
+                if (!hasFiles) {
+                  newErrors[field.id] = t('common.fileRequired', lang);
+                }
+              } else if (field.required && !formData[field.id]) {
                 newErrors[field.id] = t('common.required', lang);
               }
               // Рекурсивно проверяем вложенные условные поля
@@ -225,9 +258,11 @@ export const QuestionnaireForm: React.FC = () => {
       console.log('Form data (JSON):', jsonData);
       
       // Отправляем в Telegram
-      const success = await sendToTelegram(questionnaire.id, formData);
+      const result = await sendToTelegram(questionnaire.id, formData, ({ fieldId, fileName, status }) => {
+        setFileStatuses(prev => ({ ...prev, [getFileStatusKey(fieldId, fileName)]: status }));
+      });
       
-      if (success) {
+      if (result.success) {
         // очищаем сохранённые данные для этой анкеты
         try {
           localStorage.removeItem(`questionnaire_${questionnaire.id}`);
@@ -237,11 +272,11 @@ export const QuestionnaireForm: React.FC = () => {
         alert(t('common.success', lang));
         navigate('/');
       } else {
-        alert(t('common.error', lang));
+        alert(result.error || t('common.fileUploadError', lang));
       }
     } catch (error) {
       console.error('Submit error:', error);
-      alert(t('common.error', lang));
+      alert(t('common.fileUploadError', lang));
     } finally {
       setIsSubmitting(false);
     }
@@ -275,6 +310,8 @@ export const QuestionnaireForm: React.FC = () => {
               errors={errors}
               error={errors[question.id]}
               lang={lang}
+              isSubmitting={isSubmitting}
+              fileStatuses={fileStatuses}
             />
           ))}
           
@@ -315,6 +352,8 @@ interface QuestionFieldProps {
   errors?: Record<string, string>;
   error?: string;
   lang: 'ru' | 'en';
+  isSubmitting?: boolean;
+  fileStatuses?: Record<string, FileUiStatus>;
 }
 
 const QuestionFieldComponent: React.FC<QuestionFieldProps> = ({
@@ -325,7 +364,9 @@ const QuestionFieldComponent: React.FC<QuestionFieldProps> = ({
   formData,
   errors,
   error,
-  lang
+  lang,
+  isSubmitting = false,
+  fileStatuses = {}
 }) => {
   const [fileList, setFileList] = useState<File[]>([]);
   const label = (question.labelEn && lang === 'en') ? question.labelEn : question.label;
@@ -600,6 +641,11 @@ const QuestionFieldComponent: React.FC<QuestionFieldProps> = ({
               onChange={(e) => {
                 try {
                   const files = Array.from(e.target.files || []);
+                  const MAX_FILES = 5;
+                  if (files.length > MAX_FILES) {
+                    alert(t('common.fileMaxCount', lang));
+                    return;
+                  }
                   
                   // Проверяем валидность файлов
                   const validFiles = files.filter(file => {
@@ -657,6 +703,27 @@ const QuestionFieldComponent: React.FC<QuestionFieldProps> = ({
                       <span className="file-item-icon">{getFileIcon(file.name)}</span>
                       <span className="file-item-name" title={file.name}>{file.name}</span>
                       <span className="file-item-size">({(file.size / 1024).toFixed(1)} KB)</span>
+                      <span className={`file-item-status status-${fileStatuses[getFileStatusKey(question.id, file.name)] || 'selected'}`}>
+                        {(() => {
+                          const status = fileStatuses[getFileStatusKey(question.id, file.name)] || 'selected';
+                          if (status === 'uploading') return t('common.fileStatusUploading', lang);
+                          if (status === 'success') return t('common.fileStatusSuccess', lang);
+                          if (status === 'error') return t('common.fileStatusError', lang);
+                          return t('common.fileStatusSelected', lang);
+                        })()}
+                      </span>
+                      <button
+                        type="button"
+                        className="file-remove-btn"
+                        disabled={isSubmitting}
+                        onClick={() => {
+                          const updated = fileList.filter((_, i) => i !== idx);
+                          setFileList(updated);
+                          onChange(updated.length > 0 ? updated : null);
+                        }}
+                      >
+                        ×
+                      </button>
                     </div>
                   );
                 })}
@@ -711,6 +778,8 @@ const QuestionFieldComponent: React.FC<QuestionFieldProps> = ({
                 errors={errors}
                 error={errors?.[field.id]}
                 lang={lang}
+                isSubmitting={isSubmitting}
+                fileStatuses={fileStatuses}
               />
             );
           })}
